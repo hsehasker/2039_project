@@ -1,0 +1,52 @@
+# Конфигурация эксперимента Machine Unlearning.
+# Всё, что в ТЗ требуется «задавать через YAML/JSON», живёт тут.
+
+experiment:
+  run_root: runs              # корневая папка для артефактов
+  random_seed: 42
+  test_size: 0.2              # доля контрольной выборки
+
+sharding:
+  n_shards: 5                 # количество SISA-шардов
+  shard_seed: 42              # seed хеш-шардирования (стабильная маршрутизация)
+
+model:
+  backend: logreg             # logreg | random_forest
+  # Параметры для PyTorch логистической регрессии
+  logreg:
+    lr: 0.05
+    weight_decay: 1.0e-4
+    epochs: 200
+    batch_size: 0             # 0 — full-batch
+    device: cpu
+    patience: 20
+    tol: 1.0e-5
+    class_weight: balanced
+  # Параметры Random Forest
+  random_forest:
+    n_estimators: 100
+    max_depth: 12
+    min_samples_leaf: 2
+    n_jobs: 1
+    class_weight: balanced
+
+preprocessing:
+  target_column: label
+  numeric_features:
+    - age
+    - purchase_amount
+    - purchase_count
+    - avg_check
+    - days_since_last_purchase
+  boolean_features:
+    - is_premium
+    - is_subscribed
+    - consent_given
+  categorical_features:
+    - region
+    - device_type
+    - preferred_category
+
+logging:
+  level: INFO
+  save_to_file: true
