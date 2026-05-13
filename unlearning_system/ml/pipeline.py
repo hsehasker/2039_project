@@ -121,6 +121,13 @@ class ExperimentPipeline:
                 cfg = RFConfig(**cfg_dict, seed=seed + shard_id)
                 return RFLearner(cfg)
             return make
+        if backend == "decision_tree":
+            from .dt import DTConfig, DTLearner
+            cfg_dict = dict(self.config.get("model", {}).get("decision_tree", {}))
+            def make(shard_id: int) -> BaseLearner:
+                cfg = DTConfig(**cfg_dict, seed=seed + shard_id)
+                return DTLearner(cfg)
+            return make
         raise ValueError(f"Unknown backend: {backend}")
 
     # ---- training / evaluation / unlearning --------------------------------

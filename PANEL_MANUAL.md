@@ -30,7 +30,8 @@
 ## 2. Быстрый старт за 30 секунд
 
 ```bash
-cd /Users/hsehacker/Desktop/2039
+# Перейдите в папку проекта, например:
+cd 2039_project
 python panel.py
 ```
 
@@ -61,7 +62,8 @@ python panel.py
 ### Зависимости
 
 ```bash
-cd /Users/hsehacker/Desktop/2039
+# Перейдите в папку проекта, например:
+cd 2039_project
 
 # Генератор
 cd synthetic_data_generator

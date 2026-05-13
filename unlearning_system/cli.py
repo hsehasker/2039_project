@@ -93,7 +93,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     run_dir = Path(args.run)
     manifest_path = run_dir / "manifest.yaml"
     if not manifest_path.exists():
-        print(f"Manifest not found at {manifest_path}", file=sys.stderr)
+        logger.error(f"Manifest not found at {manifest_path}")
         return 1
 
     pipe = ExperimentPipeline.from_config(args.config)
@@ -118,7 +118,7 @@ def cmd_unlearn(args: argparse.Namespace) -> int:
         reason=args.reason,
     )
     if request.is_empty():
-        print("Nothing to unlearn: specify --user-ids and/or --filter.", file=sys.stderr)
+        logger.error("Nothing to unlearn: specify --user-ids and/or --filter.")
         return 2
 
     result = pipe.unlearn(request)
