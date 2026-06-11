@@ -1,0 +1,90 @@
+generator:
+  n_samples: 10000
+  random_seed: 42
+  output_format: csv          # csv | parquet
+  output_path: data/synthetic_dataset.csv
+  reference_date: "2025-01-01"  # reference date for birth_date calculation
+
+features:
+  # --- Identification features ---
+  user_id:
+    type: sequential_id
+    prefix: "USR"
+  last_name:
+    type: categorical
+  first_name:
+    type: categorical
+  middle_name:
+    type: categorical
+  birth_date:
+    type: derived_from_age
+  email:
+    type: template_email
+    domains: {mail.ru: 0.4, gmail.com: 0.3, yandex.ru: 0.3}
+  phone:
+    type: template_phone
+
+  # --- Behavioral features ---
+  age:
+    distribution: normal
+    mean: 35
+    std: 10
+    clip: [18, 75]
+  region:
+    distribution: categorical
+    categories: {Moscow: 0.30, SPb: 0.20, Novosibirsk: 0.10, Ekaterinburg: 0.10, Other: 0.30}
+  purchase_amount:
+    distribution: lognormal
+    mean: 4.5
+    std: 1.0
+  purchase_count:
+    distribution: normal
+    mean: 12
+    std: 5
+    clip: [0, 100]
+  avg_check:
+    distribution: normal
+    mean: 450
+    std: 150
+    clip: [0, null]
+  days_since_last_purchase:
+    distribution: exponential
+    lambda: 0.05
+    clip: [0, 365]
+  is_premium:
+    distribution: bernoulli
+    p: 0.15
+  is_subscribed:
+    distribution: bernoulli
+    p: 0.40
+  preferred_category:
+    distribution: categorical
+    categories: {"Электроника": 0.25, "Одежда": 0.25, "Продукты": 0.20, "Косметика": 0.15, "Другое": 0.15}
+  device_type:
+    distribution: categorical
+    categories: {mobile: 0.55, desktop: 0.35, tablet: 0.10}
+
+  # --- Service features ---
+  registration_date:
+    type: random_date_range
+    start: "2020-01-01"
+    end: "2025-01-01"
+  consent_given:
+    distribution: bernoulli
+    p: 0.85
+  deletion_requested:
+    distribution: bernoulli
+    p: 0.05
+
+correlations:
+  purchase_amount_count: 0.5
+  purchase_amount_avg_check: 0.6
+  days_since_purchase_count: -0.4
+
+labeling:
+  mode: rule                  # rule | probabilistic
+  target_column: label
+
+logging:
+  level: INFO
+  save_to_file: true

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор синтетических данных</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .main-card {
+            max-width: 1200px;
+            margin: 2rem auto;
+        }
+        .stats-badge {
+            font-size: 1.1rem;
+        }
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .spinner-border {
+            width: 1.2rem;
+            height: 1.2rem;
+        }
+        #preview-table table {
+            font-size: 0.85rem;
+        }
+        .header-icon {
+            font-size: 2.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container main-card">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex align-items-center">
+                    <span class="header-icon me-3">📊</span>
+                    <div>
+                        <h3 class="mb-0">Генератор синтетических данных</h3>
+                        <small>Создание тестовых датасетов для ML-моделей</small>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Generator Form -->
+                <form id="generator-form" class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <label for="n_samples" class="form-label">Количество записей</label>
+                        <input type="number" class="form-control" id="n_samples" name="n_samples" 
+                               value="1000" min="10" max="100000" required>
+                        <div class="form-text">От 10 до 100,000</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="seed" class="form-label">Random Seed</label>
+                        <input type="number" class="form-control" id="seed" name="seed" 
+                               placeholder="Авто">
+                        <div class="form-text">Для воспроизводимости</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="labeling_mode" class="form-label">Режим разметки</label>
+                        <select class="form-select" id="labeling_mode" name="labeling_mode">
+                            <option value="rule" selected>Rule-based</option>
+                            <option value="probabilistic">Probabilistic</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-success w-100" id="generate-btn">
+                            <span class="spinner-border spinner-border-sm d-none" id="spinner"></span>
+                            <span id="btn-text">🚀 Сгенерировать</span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Stats -->
+                <div id="stats-panel" class="alert alert-info d-none">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <strong>Записей:</strong>
+                            <span class="badge bg-primary stats-badge ms-2" id="stat-rows">-</span>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Колонок:</strong>
+                            <span class="badge bg-secondary stats-badge ms-2" id="stat-cols">-</span>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Label=1:</strong>
+                            <span class="badge bg-success stats-badge ms-2" id="stat-positive">-</span>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Label=0:</strong>
+                            <span class="badge bg-warning text-dark stats-badge ms-2" id="stat-negative">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Download buttons -->
+                <div id="download-panel" class="mb-3 d-none">
+                    <div class="btn-group" role="group">
+                        <a href="/download/csv" class="btn btn-outline-primary">
+                            ⬇️ Скачать CSV
+                        </a>
+                        <a href="/download/json" class="btn btn-outline-primary">
+                            ⬇️ Скачать JSON
+                        </a>
+                        <a href="/download/parquet" class="btn btn-outline-primary">
+                            ⬇️ Скачать Parquet
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Datasets List Panel -->
+                <div id="datasets-panel" class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5>Сохраненные датасеты <small class="text-muted">(в папке data/)</small></h5>
+                        <div>
+                            <button id="refresh-datasets-btn" class="btn btn-sm btn-outline-secondary">🔄 Обновить</button>
+                            <button id="clear-datasets-btn" class="btn btn-sm btn-outline-danger">🗑️ Очистить все</button>
+                        </div>
+                    </div>
+                    <ul id="datasets-list" class="list-group">
+                        <li class="list-group-item text-center text-muted">Загрузка...</li>
+                    </ul>
+                </div>
+
+                <!-- Result Modal -->
+                <div class="modal fade" id="resultModal" tabindex="-1" aria-hidden="true">
+                  <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h5 class="modal-title" id="resultModalLabel">Результаты</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <div class="modal-body" id="resultModalBody" style="max-height: 400px; overflow-y: auto;">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Error panel -->
+                <div id="error-panel" class="alert alert-danger d-none"></div>
+
+                <!-- Preview Table -->
+                <div id="preview-panel" class="d-none">
+                    <h5>Превью данных <small class="text-muted">(первые 50 записей)</small></h5>
+                    <div class="table-container border rounded" id="preview-table"></div>
+                </div>
+            </div>
+            <div class="card-footer text-muted">
+                <small>
+                    Конфигурация: <code>configs/default.yaml</code> | 
+                    Документация: <a href="https://github.com" target="_blank">GitHub</a>
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const form = document.getElementById('generator-form');
+        const spinner = document.getElementById('spinner');
+        const btnText = document.getElementById('btn-text');
+        const generateBtn = document.getElementById('generate-btn');
+        const statsPanel = document.getElementById('stats-panel');
+        const downloadPanel = document.getElementById('download-panel');
+        const previewPanel = document.getElementById('preview-panel');
+        const previewTable = document.getElementById('preview-table');
+        const errorPanel = document.getElementById('error-panel');
+        const datasetsList = document.getElementById('datasets-list');
+        const refreshDatasetsBtn = document.getElementById('refresh-datasets-btn');
+        const clearDatasetsBtn = document.getElementById('clear-datasets-btn');
+
+        async function fetchDatasets() {
+            try {
+                const response = await fetch('/datasets');
+                const files = await response.json();
+                
+                datasetsList.innerHTML = '';
+                if (files.length === 0) {
+                    datasetsList.innerHTML = '<li class="list-group-item text-center text-muted">Нет сохраненных датасетов</li>';
+                    return;
+                }
+                
+                files.forEach(f => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    li.innerHTML = `
+                        <div>
+                            <strong>${f.name}</strong> 
+                            <span class="badge bg-secondary ms-2">${(f.size / 1024).toFixed(1)} KB</span>
+                            <span class="badge bg-primary rounded-pill ms-2">${f.format.toUpperCase()}</span>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-info me-2 text-white" onclick="showInfo('${f.name}')">ℹ️ Info</button>
+                            <button class="btn btn-sm btn-warning" onclick="runValidation('${f.name}')">🔍 Validate</button>
+                        </div>
+                    `;
+                    datasetsList.appendChild(li);
+                });
+            } catch (err) {
+                console.error("Error fetching datasets:", err);
+            }
+        }
+
+        async function showInfo(filename) {
+            try {
+                const response = await fetch('/info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    const info = result.info;
+                    let html = `<p><strong>Размерность:</strong> ${info.shape[0]} строк × ${info.shape[1]} столбцов</p>`;
+                    if (info.class_balance) {
+                         html += `<h5>Баланс классов</h5><ul>
+                         <li>Label 1: ${info.class_balance.count_true}</li>
+                         <li>Label 0: ${info.class_balance.count_false}</li>
+                         </ul>`;
+                    }
+                    html += `<h5>Числовые признаки:</h5><pre>${JSON.stringify(info.numeric_summary, null, 2)}</pre>`;
+                    showModal('Информация о ' + filename, html);
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function runValidation(filename) {
+            try {
+                const response = await fetch('/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    const val = result.results;
+                    let html = `<div class="alert ${val.passed ? 'alert-success' : 'alert-danger'}">Статус: ${val.passed ? 'ПРОЙДЕНА' : 'ПРОВАЛЕНА'}</div>`;
+                    html += '<ul>';
+                    for (const [key, data] of Object.entries(val.checks)) {
+                        html += `<li><strong>${key}:</strong> ${data.passed ? '✅ OK' : '❌ ОШИБКА'}</li>`;
+                    }
+                    html += '</ul>';
+                    html += `<pre>${JSON.stringify(val, null, 2)}</pre>`;
+                    showModal('Валидация ' + filename, html);
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        }
+        
+        function showModal(title, bodyHtml) {
+            document.getElementById('resultModalLabel').innerText = title;
+            document.getElementById('resultModalBody').innerHTML = bodyHtml;
+            const modal = new bootstrap.Modal(document.getElementById('resultModal'));
+            modal.show();
+        }
+
+        refreshDatasetsBtn.addEventListener('click', fetchDatasets);
+
+        clearDatasetsBtn.addEventListener('click', async () => {
+            if (!confirm("Удалить все датасеты из папки data/?")) return;
+            try {
+                const response = await fetch('/clear', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    alert(`Удалено файлов: ${result.deleted}`);
+                    fetchDatasets();
+                } else {
+                    alert(`Ошибка: ${result.error}`);
+                }
+            } catch (err) {
+                alert(`Ошибка соединения: ${err.message}`);
+            }
+        });
+
+        // Initial load
+        fetchDatasets();
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Show loading state
+            spinner.classList.remove('d-none');
+            btnText.textContent = 'Генерация...';
+            generateBtn.disabled = true;
+            errorPanel.classList.add('d-none');
+
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update stats
+                    document.getElementById('stat-rows').textContent = data.rows.toLocaleString();
+                    document.getElementById('stat-cols').textContent = data.columns;
+                    document.getElementById('stat-positive').textContent = 
+                        `${data.count_true.toLocaleString()} (${data.positive_rate}%)`;
+                    document.getElementById('stat-negative').textContent = 
+                        data.count_false.toLocaleString();
+
+                    // Show panels
+                    statsPanel.classList.remove('d-none');
+                    downloadPanel.classList.remove('d-none');
+                    previewPanel.classList.remove('d-none');
+                    previewTable.innerHTML = data.preview;
+
+                    // Refresh saved dataset list
+                    fetchDatasets();
+                } else {
+                    errorPanel.textContent = `Ошибка: ${data.error}`;
+                    errorPanel.classList.remove('d-none');
+                }
+            } catch (err) {
+                errorPanel.textContent = `Ошибка соединения: ${err.message}`;
+                errorPanel.classList.remove('d-none');
+            } finally {
+                // Reset button state
+                spinner.classList.add('d-none');
+                btnText.textContent = '🚀 Сгенерировать';
+                generateBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
